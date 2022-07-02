@@ -1,5 +1,7 @@
 # Official implementation for **DINE**
 
+阅读论文代码并记录注释
+
 ## [**DINE: Domain Adaptation from Single and Multiple Black-box Predictors**](https://arxiv.org/abs/2104.01539)
 
 ### Problem setting (Black-box UDA):  

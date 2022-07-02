@@ -149,6 +149,7 @@ def train_source_simp(args):
     interval_iter = max_iter // 10
     iter_num = 0
 
+    # 训练
     netF.train()
     netC.train()
 
@@ -225,11 +226,13 @@ def copy_target_simp(args):
     netF.load_state_dict(torch.load(args.modelpath))
     args.modelpath = args.output_dir_src + '/source_C.pt'   
     netC.load_state_dict(torch.load(args.modelpath))
-    source_model = nn.Sequential(netF, netC).cuda()
-    source_model.eval()
+    source_model = nn.Sequential(netF, netC).cuda() # 连接 netF和netC
+    source_model.eval() # 不启用 BatchNormalization 和 Dropout
 
     if args.net[0:3] == 'res':
         netF = network.ResBase(res_name=args.net, pretrain=True).cuda()
+
+    # bottleneck的默认值是256
     netB = network.feat_bootleneck(type=args.classifier, feature_dim=netF.in_features, bottleneck_dim=args.bottleneck).cuda()
     netC = network.feat_classifier(type=args.layer, class_num = args.class_num, bottleneck_dim=args.bottleneck).cuda()
 
@@ -267,7 +270,7 @@ def copy_target_simp(args):
                 for i in range(outputs.size()[0]):
                     outputs[i, src_idx[i, topk:]] = (1.0 - outputs[i, src_idx[i, :topk]].sum())/ (outputs.size()[1] - topk)
 
-            if start_test:
+            if start_test: 
                 all_output = outputs.float()
                 all_label = labels
                 start_test = False
@@ -369,7 +372,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='DINE')
     parser.add_argument('--gpu_id', type=str, nargs='?', default='0', help="device id to run")
     parser.add_argument('--s', type=int, default=0, help="source")
-    parser.add_argument('--t', type=int, default=1, help="target")
+    parser.add_argument('--t', type=int, default=1, help="target") # 没有用到
     parser.add_argument('--max_epoch', type=int, default=20, help="max iterations")
     parser.add_argument('--batch_size', type=int, default=64, help="batch_size")
     parser.add_argument('--worker', type=int, default=4, help="number of workers")
@@ -394,7 +397,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     if args.dset == 'office-home':
-        names = ['Art', 'Clipart', 'Product', 'RealWorld']
+        names = ['Art', 'Clipart', 'Product', 'RealWorld'] # 数据集的几个域
         args.class_num = 65 
 
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id
@@ -405,6 +408,7 @@ if __name__ == "__main__":
     random.seed(SEED)
     # torch.backends.cudnn.deterministic = True
 
+    # 分配训练集和测试集
     folder = './data/'
     args.s_dset_path = folder + args.dset + '/' + names[args.s] + '_list.txt'
     args.t_dset_path = folder + args.dset + '/' + names[args.t] + '_list.txt'
@@ -422,18 +426,19 @@ if __name__ == "__main__":
         args.out_file = open(osp.join(args.output_dir_src, 'log.txt'), 'w')
         args.out_file.write(print_args(args)+'\n')
         args.out_file.flush()
-        train_source_simp(args)
+        train_source_simp(args) #源域训练
 
         args.out_file = open(osp.join(args.output_dir_src, 'log_test.txt'), 'w')
         for i in range(len(names)):
-            if i == args.s:
+            if i == args.s: 
                 continue
             args.t = i
-            args.name = names[args.s][0].upper() + names[args.t][0].upper()
+            args.name = names[args.s][0].upper() + names[args.t][0].upper() #增加args.name,eg. AC
+            # 和一开始的语句内容完全相同，但是t变了
             args.t_dset_path = folder + args.dset + '/' + names[args.t] + '_list.txt'
             args.test_dset_path = folder + args.dset + '/' + names[args.t] + '_list.txt'
                             
-            test_target_simp(args)
+            test_target_simp(args) # No adapt. 
 
     if args.distill:
         for i in range(len(names)):
@@ -453,4 +458,4 @@ if __name__ == "__main__":
             args.test_dset_path = folder + args.dset + '/' + names[args.t] + '_list.txt'
                 
             test_target_simp(args)
-            copy_target_simp(args)
+            copy_target_simp(args) # distillation
